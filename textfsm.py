@@ -166,6 +166,19 @@ class TextFSMOptions(object):
   class Key(OptionBase):
     """Value constitutes part of the Key of the record."""
 
+  class ExtentionKey(OptionBase):
+    def OnSaveRecord(self):
+      if not self.value.value:
+        raise SkipRecord
+
+      # Get index of relevant key column.
+      key_idx = self.value.fsm.values.index(self.value)
+      # Go up the list from the end until we see a filled value.
+      for result in self.value.fsm._result:
+        if result[key_idx] == self.value.value:
+          self.value.fsm.extendRecord = result
+          break
+
   class List(OptionBase):
     """Value takes the form of a list."""
 
@@ -604,6 +617,7 @@ class TextFSM(object):
       return
 
     cur_record = []
+    self.extendRecord = None
     for value in self.values:
       try:
         value.OnSaveRecord()
@@ -624,7 +638,14 @@ class TextFSM(object):
     while None in cur_record:
       cur_record[cur_record.index(None)] = ''
 
-    self._result.append(cur_record)
+    if self.extendRecord != None:
+      for value in cur_record:
+        if value != '':
+          idx = cur_record.index(value)
+          self.extendRecord[idx] = value
+    else:
+      self._result.append(cur_record)
+
     self._ClearRecord()
 
   def _Parse(self, template):
